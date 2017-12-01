@@ -1,0 +1,198 @@
+Tab Tab1 = instance.ActiveTab;
+
+instance.ClearCache();
+instance.ClearCookie();
+instance.UsePlugins = false; //Отключаем Flash/Silverlight
+
+SibboraHelper.WebHelper wHelper = new SibboraHelper.WebHelper(instance, project);
+
+instance.CanvasRenderMode = ZennoLab.InterfacesLibrary.Enums.Browser.CanvasMode.Emulate; //включаем эмуляцию канваса
+instance.CanvasRenderSeed = Guid.NewGuid().ToString(); //генерируем новый Canvas Seed
+
+int intSpeedModeSend = 0;
+
+string API = project.Variables["API"].Value;
+
+var tblMultiakk = project.Tables["multiakk"];
+
+string strSmsService = project.Variables["SMS"].Value;
+string strCaptchaService = project.Variables["captcha_service"].Value;
+
+IZennoList lstProxy = project.Lists["proxy"];
+string strProxyList = project.Variables["proxy"].Value;
+string strProyType = string.Empty;
+List<string> lstProxyTemp = new List<string>();
+string strProxy = string.Empty;
+if (strProxyList!=string.Empty) {
+	if (lstProxy.Count==0) {
+		project.SendInfoToLog("Добавьте прокси в список, на данным момент работаем без прокси",true);
+	} else {
+		lock (SyncObjects.ListSyncer) {
+			strProxy = lstProxy[0];
+			lstProxy.RemoveAt(0);
+			lstProxy.Add(strProxy);
+			instance.SetProxy(strProxy, false, true, true);
+			string strAPIResponse = ZennoPoster.HttpGet("https://whoer.net/ru", strProxy, "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.BodyOnly, 30000);
+			strAPIResponse = new Regex(@"(?<=<span\ class=""cont\ \ overdots"">)[\w\W]*?(?=</dd>)").Match(strAPIResponse).Value;
+			if (strAPIResponse.Contains("Ru") || strAPIResponse.Contains("ru")) {
+				Random r = new Random();
+				string[] acceptLanguageSet = {
+				    "ru-RU,ru;q=0.8,en-US;q=0.6,en;q=0.4",
+				    "ru-RU,ru;q=0.9,en;q=0.8",
+				    "ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3"
+				};
+				// Устанавливаем Accept-Language
+				string acceptLanguage = acceptLanguageSet[r.Next(0, acceptLanguageSet.Length)].ToString();
+				project.Profile.AcceptLanguage = acceptLanguage;
+				// Устанавливаем настройки языка
+				project.Profile.UserAgentBrowserLanguage = acceptLanguage.Substring(0, acceptLanguage.IndexOf(','));
+				project.Profile.UserAgentLanguage = acceptLanguage.Substring(0, acceptLanguage.IndexOf(','));
+			} else {
+				Random R = new Random();
+				string[] acceptLanguageSet1 = {
+						"en-US,en;q=0.5"
+				};
+				string acceptLanguage1 = acceptLanguageSet1[R.Next(0, acceptLanguageSet1.Length)].ToString();
+				project.Profile.AcceptLanguage = acceptLanguage1;
+				// Устанавливаем настройки языка
+				project.Profile.UserAgentBrowserLanguage = acceptLanguage1.Substring(0, acceptLanguage1.IndexOf(','));
+				project.Profile.UserAgentLanguage = acceptLanguage1.Substring(0, acceptLanguage1.IndexOf(','));
+			}
+		}
+	}
+} else {
+	string strAPIResponse2 = ZennoPoster.HttpGet("https://whoer.net/ru", strProxy, "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.BodyOnly, 30000);
+	strAPIResponse2 = new Regex(@"(?<=\n<span\ class=""cont"">)[\w\W]*(?=<span\ class=""ico-holder\ region"">)").Match(strAPIResponse2).Value;
+	if (strAPIResponse2.Contains("Rus") || strAPIResponse2.Contains("rus")) {
+		Random ra = new Random();
+		string[] acceptLanguageSet2 = {
+		    "ru-RU,ru;q=0.8,en-US;q=0.6,en;q=0.4",
+		    "ru-RU,ru;q=0.9,en;q=0.8",
+		    "ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3"
+		};
+		// Устанавливаем Accept-Language
+		string acceptLanguage2 = acceptLanguageSet2[ra.Next(0, acceptLanguageSet2.Length)].ToString();
+		project.Profile.AcceptLanguage = acceptLanguage2;
+		// Устанавливаем настройки языка
+		project.Profile.UserAgentBrowserLanguage = acceptLanguage2.Substring(0, acceptLanguage2.IndexOf(','));
+		project.Profile.UserAgentLanguage = acceptLanguage2.Substring(0, acceptLanguage2.IndexOf(','));
+	} else {
+		Random Ra = new Random();
+		string[] acceptLanguageSet3 = {
+				"en-US,en;q=0.5"
+		};
+		string acceptLanguage3 = acceptLanguageSet3[Ra.Next(0, acceptLanguageSet3.Length)].ToString();
+		project.Profile.AcceptLanguage = acceptLanguage3;
+		// Устанавливаем настройки языка
+		project.Profile.UserAgentBrowserLanguage = acceptLanguage3.Substring(0, acceptLanguage3.IndexOf(','));
+		project.Profile.UserAgentLanguage = acceptLanguage3.Substring(0, acceptLanguage3.IndexOf(','));
+	}
+	instance.SetProxy("", false, true, true);
+}
+
+wHelper.SetRandomWindowSize(1920, 1080);
+
+Random regRandom = new Random();
+
+string BornDay = Convert.ToString(project.Profile.BornDay);
+string BornMonth = Convert.ToString(project.Profile.BornMonth);
+int Year = regRandom.Next(20,50);
+int Age = project.Profile.Age;
+string strAge = Convert.ToString(Age);
+string BornYear = Convert.ToString(Year);
+string Proxy = string.Empty;
+string strPhoneNumber = string.Empty;
+
+try{
+	Tab1.Navigate("https://ok.ru/dk?st.cmd=anonymMain&st.registration=on");
+	Tab1.WaitDownloading();
+	
+	//Выполняем SMS-активацию
+	string strConfirmationCode = String.Empty;
+	string strServiseSite = string.Empty;
+	string strOperator = string.Empty;
+	//получаем номер телефона и id регистрации
+	switch(strSmsService) {
+		case "SmsActivate.dll":
+			strServiseSite = "ok";
+			strOperator = "any";
+			break;
+		case "SmsVk.dll":
+			strServiseSite = "ok";
+			strOperator = "";
+			break;
+		case "SmsReg.dll":
+			strServiseSite = "classmates";
+			strOperator = "all";
+			break;
+		case "SimSmsOrg.dll":
+			strServiseSite = "opt5";
+			strOperator = "";
+			break;
+		case "GetSmsOnline.dll":
+			strServiseSite = "ok";
+			strOperator = "or";
+			break;
+		case "GiveSms.dll":
+			strServiseSite = "ok";
+			strOperator = "any";
+			break;
+	}
+	string strRegistrationID = ZennoPoster.Sms.GetNumber(strSmsService, out strPhoneNumber, strServiseSite,strOperator);
+	if (strPhoneNumber==string.Empty) {
+		project.SendInfoToLog("Не получили номер телефона, попробуйте сменить сервис и запустить снова",true);
+		return "Oki";
+	}
+	project.SendInfoToLog("Получен телефонный номер: " + strPhoneNumber, true);
+	//сообщаем сервису, что в ближайшие 2 минуты на номер придёт смс от указанного нами сервиса
+	string strSetStatusResult = ZennoPoster.Sms.SetStatus(strSmsService, strRegistrationID, InterfacesLibrary.SmsService.Enums.SmsServiceStatus.Ready);
+	//получаем код подтверждения или сообщаем об ошибке
+	if (strSetStatusResult=="Ready") {
+		wHelper.SetElementValueXPath(Tab1, true, null, "//input[@id='field_phone']", 0, strPhoneNumber);
+		wHelper.ClickElementXPath(Tab1, false, null, "//input[@id='proceedRegistration']", 0);
+		//здесь можно сделать дополнительное ожидание, но работает и так.
+		while (true) {
+			strConfirmationCode = ZennoPoster.Sms.GetStatus(strSmsService, strRegistrationID);
+			if (strConfirmationCode!="Wait") break;
+			//if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null; // Прерывание в ZP
+		}
+	}else{
+		project.SendErrorToLog("STOP: Произошла ошибка. Сервис смс-активации не готов", true);
+		return "error";
+	}
+	//заполняем поле кодом подтверждения
+	wHelper.SetElementValueXPath(Tab1, true, null, "//input[@id='smsCode']", 0, strConfirmationCode);
+	wHelper.ClickElementXPath(Tab1, false, null, "//input[contains(@class, 'registration')]", 0);
+	project.SendInfoToLog("Получен код подтверждения: " + strConfirmationCode, true);
+	
+	if (!Tab1.FindElementByXPath("//input[contains(@class, 'chooseUserButton')]",0).IsVoid) {
+		wHelper.ClickElementXPath(Tab1, false, null, "//input[contains(@class, 'button-pro form-actions_yes chooseUserButton')']", 0);
+	}
+
+	//Заполняем поля пароль
+	wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@class, 'password')]", 0, project.Profile.Password+strAge);
+	wHelper.ClickElementXPath(Tab1, false, null, "//input[contains(@class, 'proceed')]", 0);
+	//Заполняю имя и пароль
+	wHelper.SetElementValueXPath(Tab1, true, null, "//input[@id='field_name']", 0, project.Profile.Name);
+	wHelper.SetElementValueXPath(Tab1, true, null, "//input[@id='field_surname']", 0, project.Profile.Surname);
+	wHelper.SetElementValueXPath(Tab1, true, null, "//select[@id='field_bday']", 0, BornDay);
+	wHelper.SetElementValueXPath(Tab1, true, null, "//select[@id='field_bmonth']", 0, BornMonth);
+	wHelper.SetElementValueXPath(Tab1, true, null, "//select[@id='field_byear']", 0, BornYear);
+	wHelper.ClickElementXPath(Tab1, false, null, "//input[contains(@id,'savePopLayerShortEditUserProfile')]", 0);
+}catch{
+	project.SendErrorToLog("Ошибка: " + wHelper.LastStep);
+	return null;
+}
+
+string strDate = DateTime.Now.ToString();
+
+project.Variables["fio"].Value = project.Profile.Name+ " " + project.Profile.Surname;
+project.Variables["login"].Value = strPhoneNumber;
+project.Variables["pass"].Value = project.Profile.Password+strAge;
+project.Variables["proxy"].Value = strProxy;
+project.Variables["useragent"].Value = project.Profile.UserAgent;
+project.Variables["BirthDay"].Value = BornDay+"-"+BornMonth+"-"+BornYear;
+project.Variables["RegData"].Value = strDate;
+project.Variables["DOPMailLogin"].Value = string.Empty;
+project.Variables["DOPMailPass"].Value = string.Empty;
+project.Variables["CC"].Value = "Одноклассники";  
